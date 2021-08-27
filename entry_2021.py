@@ -66,11 +66,11 @@ def export_data(sample_path, result_path, frame_length, Tx):
         pad_remainder = fs*frame_length-int(sig_len%(fs*frame_length))
         sig_pad = np.concatenate([sig, sig[0:pad_remainder]])
  
-    # export time and frequency domain data
+    # export frequency domain data
     dataBufs = {}
-    dataBufs["signal1"] = sig_pad[:,0]
+    #dataBufs["signal1"] = sig_pad[:,0]
     dataBufs["signal1_spectrogram"] = sig_pad[:,0]
-    dataBufs["signal2"] = sig_pad[:,1]
+    #dataBufs["signal2"] = sig_pad[:,1]
     dataBufs["signal2_spectrogram"] = sig_pad[:,1]
     for key in list(dataBufs.keys()):
             if not os.path.exists(result_path+'/'+key):
@@ -161,8 +161,8 @@ def run_data(model, sample_path, result_path, bio_signals, Tx, Ty, n_channels):
       sig, signal_len, fs = load_data(sample_path)
       signal_end_point = int(((int(signal_len)/200)/frame_length)*Ty)
       end_points = []
-      if len([el for el in y_pred if el == 1]) > 5:
-          if abs(len(y_pred) - len([el for el in y_pred if el == 1])) < 5:
+      if len([el for el in y_pred if el == 1]) > 5 and len([el for el in y_pred if el == 1]) > signal_end_point/160:
+          if abs(len(y_pred) - len([el for el in y_pred if el == 1])) < 5 or (abs(len([el for el in y_pred if el == 1])-signal_end_point) < signal_end_point/100):
               end_points.append([0, int(signal_len)-1])
           else:
               for i in range(signal_end_point):
@@ -183,11 +183,11 @@ if __name__ == '__main__':
     frame_length = 60
     Tx = 1333
     Ty = 164
-    n_channels = 14
-    bio_signals = ['signal1', 'signal1_spectrogram','signal2', 'signal2_spectrogram']
+    n_channels = 12
+    bio_signals = ['signal1_spectrogram', 'signal2_spectrogram']
     
     model = stateful_model(input_shape = (1, Tx, n_channels))    
-    model.load_weights('./model_v1.h5')
+    model.load_weights('./model_v2.h5')
     test_set = open(os.path.join(DATA_PATH, 'RECORDS'), 'r').read().splitlines()
     for i, sample in enumerate(test_set):
         print(sample)    

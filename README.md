@@ -2,7 +2,7 @@
 
 ## What's in this repository?
 
-We implemented a Convolutional recurrent neural network that uses the time and frequency representations of the ECG lead signals as features.
+We implemented a Convolutional recurrent neural network that uses the frequency representations of the ECG lead signals as features.
 
 The code uses two main scripts, as described below, to train and run the model for the 2021 Challenge.
 

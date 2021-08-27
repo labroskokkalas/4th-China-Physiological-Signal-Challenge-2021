@@ -288,9 +288,9 @@ if __name__ == '__main__':
     frame_length = 60
     Tx = 1333
     Ty = 164
-    n_edf = 14
+    n_edf = 12
     batch_size=113
-    bio_signals = ['signal1', 'signal1_spectrogram','signal2', 'signal2_spectrogram']
+    bio_signals = ['signal1_spectrogram', 'signal2_spectrogram']
     
     training_set = open(os.path.join(DATA_PATH, 'RECORDS'), 'r').read().splitlines()
     for i, sample in enumerate(training_set):
@@ -299,4 +299,4 @@ if __name__ == '__main__':
  
     create_batch_directory(RUN_PATH, os.path.join(RUN_PATH, 'BATCH'), bio_signals, batch_size)
     model= train_physionet_model(os.path.join(RUN_PATH, 'BATCH'), frame_length, Tx, Ty, n_edf, batch_size)
-    model.save_weights(RUN_PATH+'/model_v1.h5')
+    model.save_weights(RUN_PATH+'/model_v2.h5')

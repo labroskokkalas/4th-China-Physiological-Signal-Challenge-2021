@@ -187,7 +187,7 @@ if __name__ == '__main__':
     bio_signals = ['signal1_spectrogram', 'signal2_spectrogram']
     
     model = stateful_model(input_shape = (1, Tx, n_channels))    
-    model.load_weights('./model_v2.h5')
+    model.load_weights('./model_v3.h5')
     test_set = open(os.path.join(DATA_PATH, 'RECORDS'), 'r').read().splitlines()
     for i, sample in enumerate(test_set):
         print(sample)    

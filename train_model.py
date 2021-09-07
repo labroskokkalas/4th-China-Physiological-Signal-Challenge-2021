@@ -227,22 +227,16 @@ class StatefulDataGenerator(tf.keras.utils.Sequence):
 
 def stateful_model(input_shape):
      X_input = tf.keras.Input(batch_shape = input_shape)
-     X = tf.keras.layers.BatchNormalization()(X_input)
-     X = tf.keras.layers.Conv1D(filters=128,kernel_size=5,strides=2)(X)                                 
-     X = tf.keras.layers.BatchNormalization()(X)                                 
+     X = tf.keras.layers.Conv1D(filters=128,kernel_size=5,strides=2)(X_input)                                 
      X = tf.keras.layers.Activation("relu")(X)                                 
      X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 128))(X)
      X = tf.keras.layers.Conv1D(filters=128,kernel_size=5,strides=2)(X)                                 
-     X = tf.keras.layers.BatchNormalization()(X)                                 
      X = tf.keras.layers.Activation("relu")(X)                                
      X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 128))(X)
      X = tf.keras.layers.Conv1D(filters=128,kernel_size=5,strides=2)(X)                                 
-     X = tf.keras.layers.BatchNormalization()(X)                                 
      X = tf.keras.layers.Activation("relu")(X)                                 
      X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 128))(X)     
      X = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(units=128, return_sequences=True, stateful=True, reset_after=True),merge_mode='ave')(X)
-     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 128))(X)                               
-     X = tf.keras.layers.BatchNormalization()(X)                                  
      X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 128))(X)                                  
      X = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(1, activation = "sigmoid"))(X) 
      model = tf.keras.Model(inputs = X_input, outputs = X)
@@ -289,7 +283,7 @@ if __name__ == '__main__':
     Tx = 1333
     Ty = 164
     n_edf = 12
-    batch_size=113
+    batch_size=64
     bio_signals = ['signal1_spectrogram', 'signal2_spectrogram']
     
     training_set = open(os.path.join(DATA_PATH, 'RECORDS'), 'r').read().splitlines()
@@ -299,4 +293,4 @@ if __name__ == '__main__':
  
     create_batch_directory(RUN_PATH, os.path.join(RUN_PATH, 'BATCH'), bio_signals, batch_size)
     model= train_physionet_model(os.path.join(RUN_PATH, 'BATCH'), frame_length, Tx, Ty, n_edf, batch_size)
-    model.save_weights(RUN_PATH+'/model_v2.h5')
+    model.save_weights(RUN_PATH+'/model_v4.h5')

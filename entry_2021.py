@@ -21,23 +21,17 @@ Written by:  Lampros Kokkalas, Nikolas A. Tatlas, Stelios M. Potirakis
 # define convolutional recurrent network model
 def stateful_model(input_shape):
      X_input = tf.keras.Input(batch_shape = input_shape)
-     X = tf.keras.layers.BatchNormalization()(X_input)
-     X = tf.keras.layers.Conv1D(filters=128,kernel_size=5,strides=2)(X)                                
-     X = tf.keras.layers.BatchNormalization()(X)                              
+     X = tf.keras.layers.Conv1D(filters=128,kernel_size=5,strides=2)(X_input)                                
      X = tf.keras.layers.Activation("relu")(X)                                 
      X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 128))(X)
      X = tf.keras.layers.Conv1D(filters=128,kernel_size=5,strides=2)(X)                                 
-     X = tf.keras.layers.BatchNormalization()(X)                                 
      X = tf.keras.layers.Activation("relu")(X)                                
      X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 128))(X)
      X = tf.keras.layers.Conv1D(filters=128,kernel_size=5,strides=2)(X)                                 
-     X = tf.keras.layers.BatchNormalization()(X)                                 
      X = tf.keras.layers.Activation("relu")(X)                                 
      X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 128))(X)     
      X = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(units=128, return_sequences=True, stateful=True, reset_after=True),merge_mode='ave')(X)
      X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 128))(X)                                  
-     X = tf.keras.layers.BatchNormalization()(X)                                  
-     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 128))(X)                                 
      X = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(1, activation = "sigmoid"))(X) 
      model = tf.keras.Model(inputs = X_input, outputs = X)
      return model  
@@ -117,8 +111,8 @@ def export_data(sample_path, result_path, frame_length, Tx):
             for i in range(dataBufs[key].shape[0]):  
                 data = dataBufs[key][i].astype('float32')  
                 np.save(result_path+'/'+key+'/'+sample_path.split(seperator)[-1]+'/'+sample_path.split(seperator)[-1]+'_'+str(i*frame_length)+'_'+str((i+1)*frame_length)+".npy", data)                   
-
-def remove_consecutive_ones(y, lowerLimit) :   
+    
+def  removeConsecutiveOnes(y, lowerLimit) :   
     for i in range(y.shape[0]):
         if (y[i] == 0 or (y[i] == 1 and i == 0)) and i < y.shape[0]-1 and y[i+1] == 1 :
             for j in range(i+2,y.shape[0]) :
@@ -128,6 +122,14 @@ def remove_consecutive_ones(y, lowerLimit) :
                             y[k] = 0
                         if i == 0:
                             y[i] = 0                         
+                    break
+    for i in range(y.shape[0]):
+        if y[i] == 1 and i < y.shape[0]-1 and y[i+1] == 0 :
+            for j in range(i+2,y.shape[0]) :
+                if y[j] == 1 or j == y.shape[0]-1:
+                    if j-i-1 <= lowerLimit and j < y.shape[0]-1 :
+                        for k in range(i+1,j+1):
+                            y[k] = 1                        
                     break
     return y 
 
@@ -153,10 +155,10 @@ def run_data(model, sample_path, result_path, bio_signals, Tx, Ty, n_channels):
           # run inference 
           y_pred[test_samples.index(test_sample)] = model.predict(X_pred,verbose=0)[0]          
       
-      y_pred = 1*(y_pred > 0.5)
+      y_pred = 1*(y_pred > 0.4)
       y_pred = y_pred.flatten()
       # remove very short detected events
-      y_pred = remove_consecutive_ones(y_pred,2.0*Ty/frame_length)
+      y_pred = remove_consecutive_ones(y_pred,3.0*Ty/frame_length)
       
       sig, signal_len, fs = load_data(sample_path)
       signal_end_point = int(((int(signal_len)/200)/frame_length)*Ty)
@@ -187,7 +189,7 @@ if __name__ == '__main__':
     bio_signals = ['signal1_spectrogram', 'signal2_spectrogram']
     
     model = stateful_model(input_shape = (1, Tx, n_channels))    
-    model.load_weights('./model_v3.h5')
+    model.load_weights('./model_v4.h5')
     test_set = open(os.path.join(DATA_PATH, 'RECORDS'), 'r').read().splitlines()
     for i, sample in enumerate(test_set):
         print(sample)    

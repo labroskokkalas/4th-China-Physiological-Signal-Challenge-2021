@@ -112,7 +112,7 @@ def export_data(sample_path, result_path, frame_length, Tx):
                 data = dataBufs[key][i].astype('float32')  
                 np.save(result_path+'/'+key+'/'+sample_path.split(seperator)[-1]+'/'+sample_path.split(seperator)[-1]+'_'+str(i*frame_length)+'_'+str((i+1)*frame_length)+".npy", data)                   
     
-def  removeConsecutiveOnes(y, lowerLimit) :   
+def remove_consecutive_ones(y, lowerLimit) :  
     for i in range(y.shape[0]):
         if (y[i] == 0 or (y[i] == 1 and i == 0)) and i < y.shape[0]-1 and y[i+1] == 1 :
             for j in range(i+2,y.shape[0]) :

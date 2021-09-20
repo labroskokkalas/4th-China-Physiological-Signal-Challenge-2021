@@ -23,15 +23,17 @@ def stateful_model(input_shape):
      X_input = tf.keras.Input(batch_shape = input_shape)
      X = tf.keras.layers.Conv1D(filters=128,kernel_size=5,strides=2)(X_input)                                
      X = tf.keras.layers.Activation("relu")(X)                                 
-     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 128))(X)
+     X = tf.keras.layers.Dropout(rate=0.2,noise_shape=(1, 1, 128))(X)
      X = tf.keras.layers.Conv1D(filters=128,kernel_size=5,strides=2)(X)                                 
      X = tf.keras.layers.Activation("relu")(X)                                
-     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 128))(X)
+     X = tf.keras.layers.Dropout(rate=0.2,noise_shape=(1, 1, 128))(X)
      X = tf.keras.layers.Conv1D(filters=128,kernel_size=5,strides=2)(X)                                 
      X = tf.keras.layers.Activation("relu")(X)                                 
-     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 128))(X)     
+     X = tf.keras.layers.Dropout(rate=0.2,noise_shape=(1, 1, 128))(X)     
      X = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(units=128, return_sequences=True, stateful=True, reset_after=True),merge_mode='ave')(X)
-     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 128))(X)                                  
+     X = tf.keras.layers.Dropout(rate=0.2,noise_shape=(1, 1, 128))(X)                 
+     X = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(units=128, return_sequences=True, stateful=True, reset_after=True),merge_mode='ave')(X)
+     X = tf.keras.layers.Dropout(rate=0.2,noise_shape=(1, 1, 128))(X)       
      X = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(1, activation = "sigmoid"))(X) 
      model = tf.keras.Model(inputs = X_input, outputs = X)
      return model  
@@ -133,7 +135,7 @@ def remove_consecutive_ones(y, lowerLimit) :
                     break
     return y 
 
-def run_data(model, sample_path, result_path, bio_signals, Tx, Ty, n_channels):
+def run_data(model, model_p, sample_path, result_path, bio_signals, Tx, Ty, n_channels):
       seperator = os.sep
       model.reset_states()
       test_samples = glob.glob(result_path+'/'+bio_signals[0]+'/'+sample_path.split(seperator)[-1]+"/*.npy")
@@ -158,7 +160,7 @@ def run_data(model, sample_path, result_path, bio_signals, Tx, Ty, n_channels):
       y_pred = 1*(y_pred > 0.4)
       y_pred = y_pred.flatten()
       # remove very short detected events
-      y_pred = remove_consecutive_ones(y_pred,3.0*Ty/frame_length)
+      y_pred = remove_consecutive_ones(y_pred,1.0*Ty/frame_length)
       
       sig, signal_len, fs = load_data(sample_path)
       signal_end_point = int(((int(signal_len)/200)/frame_length)*Ty)
@@ -166,13 +168,42 @@ def run_data(model, sample_path, result_path, bio_signals, Tx, Ty, n_channels):
       if len([el for el in y_pred if el == 1]) > 5 and len([el for el in y_pred if el == 1]) > signal_end_point/160:
           if abs(len(y_pred) - len([el for el in y_pred if el == 1])) < 5 or (abs(len([el for el in y_pred if el == 1])-signal_end_point) < signal_end_point/100):
               end_points.append([0, int(signal_len)-1])
-          else:
-              for i in range(signal_end_point):
-                  if (y_pred[i] == 0 or i == 0) and i < signal_end_point-1 and y_pred[i+1] == 1 :
-                      start_point = int(((i+1)/Ty)*frame_length*200)
-                  if y_pred[i] == 1 and i > 0 and ((i < signal_end_point-1 and y_pred[i+1] == 0) or i == signal_end_point-1) :
-                      end_point = min(int(((i+1)/Ty)*frame_length*200), int(signal_len)-1)
-                      end_points.append([start_point, end_point])                      
+          else:      
+              model_p.reset_states()
+              test_samples = glob.glob(result_path+'/'+bio_signals[0]+'/'+sample_path.split(seperator)[-1]+"/*.npy")
+              test_samples.sort(key=lambda x: int(float(x.split(seperator)[-1].split("_")[3])))
+              y_pred_p = np.zeros([len(test_samples), Ty, 1])
+              for test_sample in test_samples:
+                  X_pred = np.zeros([1, Tx, n_channels])
+                  for signal in bio_signals:
+                      signal_data = np.load(result_path+'/'+signal+'/'+sample_path.split(seperator)[-1]+'/'+test_sample.split(seperator)[-1])
+                      if signal == bio_signals[0]:
+                          data = signal_data
+                      else:    
+                          data = np.concatenate((data,signal_data),axis=1)
+                  X_pred[0,] = data
+                  # initialize model
+                  if test_sample == test_samples[0]:
+                      ss = model.predict(X_pred,verbose=0)[0] 
+                      ss = model.predict(X_pred,verbose=0)[0] 
+                  # run inference 
+                  y_pred_p[test_samples.index(test_sample)] = model_p.predict(X_pred,verbose=0)[0]          
+      
+              y_pred_p = 1*(y_pred_p > 0.4)
+              y_pred_p = y_pred_p.flatten()
+              # remove very short detected events
+              y_pred_p = remove_consecutive_ones(y_pred_p,1.0*Ty/frame_length)             
+              if len([el for el in y_pred_p if el == 1])*1.2 > len([el for el in y_pred if el == 1]) :
+                  y_pred = y_pred_p
+              if abs(len(y_pred) - len([el for el in y_pred if el == 1])) < 5 or (abs(len([el for el in y_pred if el == 1])-signal_end_point) < signal_end_point/100):
+                  end_points.append([0, int(signal_len)-1])
+              else:
+                  for i in range(signal_end_point):
+                      if (y_pred[i] == 0 or i == 0) and i < signal_end_point-1 and y_pred[i+1] == 1 :
+                          start_point = int(((i+1)/Ty)*frame_length*200)
+                      if y_pred[i] == 1 and i > 0 and ((i < signal_end_point-1 and y_pred[i+1] == 0) or i == signal_end_point-1) :
+                          end_point = min(int(((i+1)/Ty)*frame_length*200), int(signal_len)-1)
+                          end_points.append([start_point, end_point])                      
       pred_dict = {'predict_endpoints': end_points}
       save_dict(os.path.join(result_path, sample_path.split(seperator)[-1]+'.json'), pred_dict)
 
@@ -189,11 +220,13 @@ if __name__ == '__main__':
     bio_signals = ['signal1_spectrogram', 'signal2_spectrogram']
     
     model = stateful_model(input_shape = (1, Tx, n_channels))    
-    model.load_weights('./model_v4.h5')
+    model.load_weights('./model_v5.h5')
+    model_p = stateful_model(input_shape = (1, Tx, n_channels))    
+    model_p.load_weights('./model_v5_p.h5')
     test_set = open(os.path.join(DATA_PATH, 'RECORDS'), 'r').read().splitlines()
     for i, sample in enumerate(test_set):
         print(sample)    
         sample_path = os.path.join(DATA_PATH, sample)
         export_data(sample_path, RESULT_PATH, frame_length, Tx)
-        run_data(model, sample_path, RESULT_PATH, bio_signals, Tx, Ty, n_channels)
+        run_data(model, model_p, sample_path, RESULT_PATH, bio_signals, Tx, Ty, n_channels)
 

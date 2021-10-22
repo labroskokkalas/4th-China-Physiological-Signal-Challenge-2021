@@ -159,6 +159,7 @@ def export_data(sample_path, run_path, frame_length, Tx):
 def create_batch_directory(bioDir, batchDir, bio_signals, batch_size):
     seperator = os.sep
     sample_dirs = [el.split(seperator)[-1 ]for el in glob.glob(bioDir+'/'+bio_signals[0]+'/*')]
+    sample_dirs = [el for el in sample_dirs if int(el.split('_')[1]) > 53]
     sample_dirs.sort(key=lambda x: len(glob.glob(bioDir+'/'+bio_signals[0]+'/'+x+'/*')))
     reverse = False
 
@@ -281,15 +282,15 @@ def stateful_model(input_shape):
      X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)     
      X = tf.keras.layers.Conv1D(filters=32,kernel_size=5,strides=2)(X)                                 
      X = tf.keras.layers.Activation("relu")(X)                                
-     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)     
-     X = tf.keras.layers.Conv1D(filters=32,kernel_size=5,strides=2)(X)                                 
-     X = tf.keras.layers.Activation("relu")(X)                               
-     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)     
+     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)        
      X = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(units=32, return_sequences=True, stateful=True, reset_after=True),merge_mode='ave')(X)
      X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)                                  
      X = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(units=32, return_sequences=True, stateful=True, reset_after=True),merge_mode='ave')(X)
      X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)  
      X = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(units=32, return_sequences=True, stateful=True, reset_after=True),merge_mode='ave')(X)
+     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)                                  
+     X = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(units=32, return_sequences=True, stateful=True, reset_after=True),merge_mode='ave')(X)
+     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)       
      X = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(1, activation = "sigmoid"))(X) 
      model = tf.keras.Model(inputs = X_input, outputs = X)
      return model    
@@ -331,7 +332,7 @@ if __name__ == '__main__':
         
     frame_length = 60
     Tx = 12000
-    Ty = 372
+    Ty = 747
     n_edf = 2
     batch_size=64
     bio_signals = ['signal1', 'signal2']
@@ -343,5 +344,5 @@ if __name__ == '__main__':
  
     create_batch_directory(RUN_PATH, os.path.join(RUN_PATH, 'BATCH'), bio_signals, batch_size)
     model= train_physionet_model(os.path.join(RUN_PATH, 'BATCH'), frame_length, Tx, Ty, n_edf, batch_size)
-    model.save_weights(RUN_PATH+'/model_v6.h5')
+    model.save_weights(RUN_PATH+'/model_v7.h5')
     

@@ -9,7 +9,7 @@ import math
 import wfdb
 from scipy import signal
 import tensorflow as tf
-
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 """
 Written by:  Lampros Kokkalas, Nikolas A. Tatlas, Stelios M. Potirakis
              Department of Electrical and Electronics Engineering, 
@@ -31,15 +31,15 @@ def stateful_model(input_shape):
      X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)     
      X = tf.keras.layers.Conv1D(filters=32,kernel_size=5,strides=2)(X)                                 
      X = tf.keras.layers.Activation("relu")(X)                                
-     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)     
-     X = tf.keras.layers.Conv1D(filters=32,kernel_size=5,strides=2)(X)                                 
-     X = tf.keras.layers.Activation("relu")(X)                               
-     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)     
+     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)        
      X = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(units=32, return_sequences=True, stateful=True, reset_after=True),merge_mode='ave')(X)
      X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)                                  
      X = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(units=32, return_sequences=True, stateful=True, reset_after=True),merge_mode='ave')(X)
      X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)  
      X = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(units=32, return_sequences=True, stateful=True, reset_after=True),merge_mode='ave')(X)
+     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)                                  # dropout (use 0.8)
+     X = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(units=32, return_sequences=True, stateful=True, reset_after=True),merge_mode='ave')(X)
+     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)      
      X = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(1, activation = "sigmoid"))(X) 
      model = tf.keras.Model(inputs = X_input, outputs = X)
      return model   
@@ -192,12 +192,12 @@ if __name__ == '__main__':
         
     frame_length = 60
     Tx = 12000
-    Ty = 372
+    Ty = 747
     n_channels = 2
     bio_signals = ['signal1', 'signal2']
     
     model = stateful_model(input_shape = (1, Tx, n_channels))    
-    model.load_weights('./model_v6.h5')
+    model.load_weights('./model_v7.h5')
     test_set = open(os.path.join(DATA_PATH, 'RECORDS'), 'r').read().splitlines()
     for i, sample in enumerate(test_set):
         print(sample)    

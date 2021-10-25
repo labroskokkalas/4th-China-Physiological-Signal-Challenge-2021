@@ -9,7 +9,6 @@ import math
 import wfdb
 from scipy import signal
 import tensorflow as tf
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 """
 Written by:  Lampros Kokkalas, Nikolas A. Tatlas, Stelios M. Potirakis
              Department of Electrical and Electronics Engineering, 
@@ -135,13 +134,13 @@ def remove_consecutive_ones(y, lowerLimit) :
         if y[i] == 1 and i < y.shape[0]-1 and y[i+1] == 0 :
             for j in range(i+2,y.shape[0]) :
                 if y[j] == 1 or j == y.shape[0]-1:
-                    if j-i-1 <= lowerLimit and j < y.shape[0]-1 :
+                    if j-i-1 <= 2*lowerLimit and j < y.shape[0]-1 :
                         for k in range(i+1,j+1):
                             y[k] = 1                        
                     break
     return y 
 
-def run_data(model, sample_path, result_path, bio_signals, Tx, Ty, n_channels):
+def run_data(model, model_p, sample_path, result_path, bio_signals, Tx, Ty, n_channels):
       seperator = os.sep
       model.reset_states()
       test_samples = glob.glob(result_path+'/'+bio_signals[0]+'/'+sample_path.split(seperator)[-1]+"/*.npy")
@@ -175,6 +174,27 @@ def run_data(model, sample_path, result_path, bio_signals, Tx, Ty, n_channels):
           if abs(len(y_pred) - len([el for el in y_pred if el == 1])) < 15 or (abs(len([el for el in y_pred if el == 1])-signal_end_point) < signal_end_point/100):
               end_points.append([0, int(signal_len)-1])
           else:      
+              model_p.reset_states()
+              test_samples = glob.glob(samplesDirectory[0]+'/'+bioSignals[0]+'/'+dir+"/*.npy")
+              test_samples.sort(key=lambda x: int(float(x.split(seperator)[-1].split("_")[3])))
+              test_generator = StatefulPredictDataGenerator(test_samples,batch_size=1,seperator = seperator, Tx=Tx, Ty=Ty, n_freq=n_edf, frame_length=frame_length)
+              y_pred = np.zeros([len(test_samples), Ty, 1])
+              for sample in test_samples:
+                  X_pred = np.zeros([1, Tx, n_edf])
+                  for signal in bioSignals:
+                      edfData = np.load(samplesDirectory[0]+'/'+signal+'/'+dir+'/'+sample.split('\\')[-1])
+                      if signal == bioSignals[0]:
+                          data = edfData
+                      else:    
+                          data = np.concatenate((data,edfData),axis=1)
+                  X_pred[0,] = data
+                  if sample == test_samples[0]:
+                      ss = model_p.predict(X_pred,verbose=0)[0] 
+                      ss = model_p.predict(X_pred,verbose=0)[0] 
+                  y_pred[test_samples.index(sample)] = model_p.predict(X_pred,verbose=0)[0]                    
+              y_pred = 1*(y_pred > 0.4)
+              y_pred = y_pred.flatten()
+              y_pred = removeConsecutiveOnes(y_pred,1.0*Ty/frame_length)              
               for i in range(signal_end_point):
                   if (y_pred[i] == 0 or i == 0) and i < signal_end_point-1 and y_pred[i+1] == 1 :
                       start_point = int(((i+1)/Ty)*frame_length*fs)
@@ -198,10 +218,12 @@ if __name__ == '__main__':
     
     model = stateful_model(input_shape = (1, Tx, n_channels))    
     model.load_weights('./model_v7.h5')
+    model_p = stateful_model(input_shape = (1, Tx, n_channels))    
+    model_p.load_weights('./model_v7_p.h5')
     test_set = open(os.path.join(DATA_PATH, 'RECORDS'), 'r').read().splitlines()
     for i, sample in enumerate(test_set):
         print(sample)    
         sample_path = os.path.join(DATA_PATH, sample)
         export_data(sample_path, RESULT_PATH, frame_length, Tx)
-        run_data(model, sample_path, RESULT_PATH, bio_signals, Tx, Ty, n_channels)
+        run_data(model, model_p, sample_path, RESULT_PATH, bio_signals, Tx, Ty, n_channels)
 

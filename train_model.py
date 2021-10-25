@@ -156,10 +156,12 @@ def export_data(sample_path, run_path, frame_length, Tx):
                                     break
                     np.save(run_path+'/'+keyX+'/'+path+'/'+path+'_'+str(i*frame_length)+'_'+str((i+1)*frame_length)+annotation+".npy", data)     
 
-def create_batch_directory(bioDir, batchDir, bio_signals, batch_size):
+def create_batch_directory(bioDir, batchDir, bio_signals, batch_size,paroxysmal=False):
     seperator = os.sep
     sample_dirs = [el.split(seperator)[-1 ]for el in glob.glob(bioDir+'/'+bio_signals[0]+'/*')]
     sample_dirs = [el for el in sample_dirs if int(el.split('_')[1]) > 53]
+    if paroxysmal:
+        sample_dirs = ['data_101_5', 'data_101_6', 'data_101_7', 'data_104_25', 'data_104_26', 'data_104_27', 'data_64_9', 'data_68_6', 'data_75_4', 'data_85_2', 'data_88_2', 'data_88_3', 'data_92_1', 'data_92_16', 'data_92_18', 'data_92_2', 'data_92_20', 'data_92_6', 'data_92_7', 'data_96_18', 'data_96_19', 'data_98_1', 'data_98_5', 'data_63_9', 'data_101_8', 'data_66_15', 'data_66_3', 'data_68_23', 'data_68_9', 'data_92_3', 'data_92_5', 'data_96_12', 'data_96_21', 'data_96_22', 'data_96_23', 'data_98_11', 'data_98_3', 'data_98_6', 'data_98_8', 'data_98_9', 'data_101_4', 'data_104_11', 'data_104_17', 'data_104_18', 'data_104_28', 'data_104_8', 'data_61_1', 'data_64_7', 'data_66_18', 'data_68_1', 'data_68_12', 'data_68_14', 'data_68_22', 'data_72_3', 'data_88_6', 'data_96_11', 'data_96_17', 'data_98_2', 'data_54_7', 'data_101_9', 'data_104_14', 'data_104_24', 'data_64_10', 'data_66_1', 'data_66_12', 'data_66_16', 'data_66_7', 'data_68_19', 'data_68_21', 'data_68_8', 'data_92_22', 'data_96_1', 'data_96_20', 'data_96_5', 'data_98_10', 'data_101_3', 'data_104_4', 'data_56_18', 'data_59_22', 'Xdata_101_3', 'Xdata_104_4', 'Xdata_56_18', 'Xdata_59_22', 'data_104_13', 'data_60_11', 'data_60_2', 'data_66_13', 'data_68_10', 'data_68_13', 'data_68_16', 'data_79_8', 'data_85_1', 'data_88_10', 'data_96_4', 'data_97_3', 'data_98_7', 'data_56_19', 'data_58_10', 'data_65_11', 'data_86_2', 'data_91_3', 'data_99_14', 'data_104_1', 'data_104_5', 'data_60_9', 'data_66_4', 'data_68_24', 'data_68_7', 'data_88_11', 'data_90_1', 'data_92_19', 'data_92_4', 'data_96_8', 'data_58_1', 'data_84_7', 'data_91_24', 'data_104_2', 'data_104_7', 'data_60_7', 'data_64_2', 'data_88_1', 'data_96_2', 'data_98_12', 'data_104_22', 'data_60_10', 'data_66_10', 'data_96_6', 'data_65_1', 'data_84_1', 'data_86_1', 'data_91_21', 'data_101_1', 'data_104_6', 'data_68_20', 'data_92_21', 'data_66_17', 'data_60_3', 'data_60_8', 'data_88_7', 'data_96_9', 'data_64_6', 'data_70_9', 'data_56_2', 'data_66_8', 'data_68_25', 'data_99_9', 'data_66_9', 'data_68_11', 'data_88_4', 'data_102_7', 'data_99_15', 'data_104_16', 'data_67_18', 'data_99_16', 'data_104_19', 'data_73_16', 'data_73_3', 'Xdata_73_3', 'data_60_12', 'data_68_15', 'data_68_2', 'data_57_5', 'data_102_8', 'data_104_20']
     sample_dirs.sort(key=lambda x: len(glob.glob(bioDir+'/'+bio_signals[0]+'/'+x+'/*')))
     reverse = False
 
@@ -295,7 +297,7 @@ def stateful_model(input_shape):
      model = tf.keras.Model(inputs = X_input, outputs = X)
      return model    
 
-def train_physionet_model(samples_dir, frame_length, Tx, Ty, n_edf, batch_size):
+def train_physionet_model(samples_dir, frame_length, Tx, Ty, n_edf, batch_size,paroxysmal=False):
     seperator = os.sep
     samples = glob.glob(samples_dir+"/*.npy")
     samples.sort(key=lambda x: int(x.split(seperator)[-1].split(".")[0]))
@@ -312,6 +314,9 @@ def train_physionet_model(samples_dir, frame_length, Tx, Ty, n_edf, batch_size):
       tf.keras.metrics.Recall(name='recall'),
       tf.keras.metrics.AUC(name='auc'),
     ]
+    epochs= 20
+    if paroxysmal:
+           epochs= 100 
     model.compile(optimizer=opt, loss='binary_crossentropy', metrics=METRICS)
     history = model.fit(stateful_generator, 
                     epochs=20, 
@@ -342,7 +347,10 @@ if __name__ == '__main__':
         sample_path = os.path.join(DATA_PATH, sample)
         export_data(sample_path, RUN_PATH, frame_length, Tx)    
  
-    create_batch_directory(RUN_PATH, os.path.join(RUN_PATH, 'BATCH'), bio_signals, batch_size)
-    model= train_physionet_model(os.path.join(RUN_PATH, 'BATCH'), frame_length, Tx, Ty, n_edf, batch_size)
+    create_batch_directory(RUN_PATH, os.path.join(RUN_PATH, 'BATCH'), bio_signals, batch_size,False)
+    create_batch_directory(RUN_PATH, os.path.join(RUN_PATH, 'BATCH_P'), bio_signals, batch_size,True)
+    model= train_physionet_model(os.path.join(RUN_PATH, 'BATCH'), frame_length, Tx, Ty, n_edf, batch_size,False)
+    model= train_physionet_model(os.path.join(RUN_PATH, 'BATCH_P'), frame_length, Tx, Ty, n_edf, batch_size,True)
     model.save_weights(RUN_PATH+'/model_v7.h5')
+    model.save_weights(RUN_PATH+'/model_v7_p.h5')
     

@@ -6,6 +6,7 @@ import sys
 import glob
 import json
 import math
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import wfdb
 from scipy import signal
 import tensorflow as tf
@@ -175,26 +176,25 @@ def run_data(model, model_p, sample_path, result_path, bio_signals, Tx, Ty, n_ch
               end_points.append([0, int(signal_len)-1])
           else:      
               model_p.reset_states()
-              test_samples = glob.glob(samplesDirectory[0]+'/'+bioSignals[0]+'/'+dir+"/*.npy")
+              test_samples = glob.glob(result_path+'/'+bio_signals[0]+'/'+sample_path.split(seperator)[-1]+"/*.npy")
               test_samples.sort(key=lambda x: int(float(x.split(seperator)[-1].split("_")[3])))
-              test_generator = StatefulPredictDataGenerator(test_samples,batch_size=1,seperator = seperator, Tx=Tx, Ty=Ty, n_freq=n_edf, frame_length=frame_length)
               y_pred = np.zeros([len(test_samples), Ty, 1])
-              for sample in test_samples:
-                  X_pred = np.zeros([1, Tx, n_edf])
-                  for signal in bioSignals:
-                      edfData = np.load(samplesDirectory[0]+'/'+signal+'/'+dir+'/'+sample.split('\\')[-1])
-                      if signal == bioSignals[0]:
-                          data = edfData
+              for test_sample in test_samples:
+                  X_pred = np.zeros([1, Tx, n_channels])
+                  for signal in bio_signals:
+                      signal_data = np.load(result_path+'/'+signal+'/'+sample_path.split(seperator)[-1]+'/'+test_sample.split(seperator)[-1])
+                      if signal == bio_signals[0]:
+                          data = signal_data
                       else:    
-                          data = np.concatenate((data,edfData),axis=1)
+                          data = np.concatenate((data,signal_data),axis=1)
                   X_pred[0,] = data
-                  if sample == test_samples[0]:
+                  if test_sample == test_samples[0]:
                       ss = model_p.predict(X_pred,verbose=0)[0] 
                       ss = model_p.predict(X_pred,verbose=0)[0] 
-                  y_pred[test_samples.index(sample)] = model_p.predict(X_pred,verbose=0)[0]                    
+                  y_pred[test_samples.index(test_sample)] = model_p.predict(X_pred,verbose=0)[0]                    
               y_pred = 1*(y_pred > 0.4)
               y_pred = y_pred.flatten()
-              y_pred = removeConsecutiveOnes(y_pred,1.0*Ty/frame_length)              
+              y_pred = remove_consecutive_ones(y_pred,1.0*Ty/frame_length)              
               for i in range(signal_end_point):
                   if (y_pred[i] == 0 or i == 0) and i < signal_end_point-1 and y_pred[i+1] == 1 :
                       start_point = int(((i+1)/Ty)*frame_length*fs)

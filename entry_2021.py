@@ -6,10 +6,10 @@ import sys
 import glob
 import json
 import math
-os.environ['CUDA_VISIBLE_DEVICES'] = '-1'
 import wfdb
 from scipy import signal
 import tensorflow as tf
+
 """
 Written by:  Lampros Kokkalas, Nikolas A. Tatlas, Stelios M. Potirakis
              Department of Electrical and Electronics Engineering, 
@@ -31,15 +31,15 @@ def stateful_model(input_shape):
      X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)     
      X = tf.keras.layers.Conv1D(filters=32,kernel_size=5,strides=2)(X)                                 
      X = tf.keras.layers.Activation("relu")(X)                                
-     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)        
+     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)     
+     X = tf.keras.layers.Conv1D(filters=32,kernel_size=5,strides=2)(X)                                 
+     X = tf.keras.layers.Activation("relu")(X)                               
+     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)     
      X = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(units=32, return_sequences=True, stateful=True, reset_after=True),merge_mode='ave')(X)
      X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)                                  
      X = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(units=32, return_sequences=True, stateful=True, reset_after=True),merge_mode='ave')(X)
      X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)  
      X = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(units=32, return_sequences=True, stateful=True, reset_after=True),merge_mode='ave')(X)
-     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)                                  # dropout (use 0.8)
-     X = tf.keras.layers.Bidirectional(tf.keras.layers.GRU(units=32, return_sequences=True, stateful=True, reset_after=True),merge_mode='ave')(X)
-     X = tf.keras.layers.Dropout(rate=0.4,noise_shape=(1, 1, 32))(X)      
      X = tf.keras.layers.TimeDistributed(tf.keras.layers.Dense(1, activation = "sigmoid"))(X) 
      model = tf.keras.Model(inputs = X_input, outputs = X)
      return model   
@@ -71,9 +71,7 @@ def export_data(sample_path, result_path, frame_length, Tx):
     # export time domain data
     dataBufs = {}
     dataBufs["signal1"] = sig_pad[:,0]
-    #dataBufs["signal1_spectrogram"] = sig_pad[:,0]
     dataBufs["signal2"] = sig_pad[:,1]
-    #dataBufs["signal2_spectrogram"] = sig_pad[:,1]
     for key in list(dataBufs.keys()):
             if not os.path.exists(result_path+'/'+key):
                 os.mkdir(result_path+'/'+key) 
@@ -135,13 +133,13 @@ def remove_consecutive_ones(y, lowerLimit) :
         if y[i] == 1 and i < y.shape[0]-1 and y[i+1] == 0 :
             for j in range(i+2,y.shape[0]) :
                 if y[j] == 1 or j == y.shape[0]-1:
-                    if j-i-1 <= 2*lowerLimit and j < y.shape[0]-1 :
+                    if j-i-1 <= lowerLimit and j < y.shape[0]-1 :
                         for k in range(i+1,j+1):
                             y[k] = 1                        
                     break
     return y 
 
-def run_data(model, model_p, sample_path, result_path, bio_signals, Tx, Ty, n_channels):
+def run_data(model, sample_path, result_path, bio_signals, Tx, Ty, n_channels):
       seperator = os.sep
       model.reset_states()
       test_samples = glob.glob(result_path+'/'+bio_signals[0]+'/'+sample_path.split(seperator)[-1]+"/*.npy")
@@ -175,26 +173,6 @@ def run_data(model, model_p, sample_path, result_path, bio_signals, Tx, Ty, n_ch
           if abs(len(y_pred) - len([el for el in y_pred if el == 1])) < 15 or (abs(len([el for el in y_pred if el == 1])-signal_end_point) < signal_end_point/100):
               end_points.append([0, int(signal_len)-1])
           else:      
-              model_p.reset_states()
-              test_samples = glob.glob(result_path+'/'+bio_signals[0]+'/'+sample_path.split(seperator)[-1]+"/*.npy")
-              test_samples.sort(key=lambda x: int(float(x.split(seperator)[-1].split("_")[3])))
-              y_pred = np.zeros([len(test_samples), Ty, 1])
-              for test_sample in test_samples:
-                  X_pred = np.zeros([1, Tx, n_channels])
-                  for signal in bio_signals:
-                      signal_data = np.load(result_path+'/'+signal+'/'+sample_path.split(seperator)[-1]+'/'+test_sample.split(seperator)[-1])
-                      if signal == bio_signals[0]:
-                          data = signal_data
-                      else:    
-                          data = np.concatenate((data,signal_data),axis=1)
-                  X_pred[0,] = data
-                  if test_sample == test_samples[0]:
-                      ss = model_p.predict(X_pred,verbose=0)[0] 
-                      ss = model_p.predict(X_pred,verbose=0)[0] 
-                  y_pred[test_samples.index(test_sample)] = model_p.predict(X_pred,verbose=0)[0]                    
-              y_pred = 1*(y_pred > 0.4)
-              y_pred = y_pred.flatten()
-              y_pred = remove_consecutive_ones(y_pred,1.0*Ty/frame_length)              
               for i in range(signal_end_point):
                   if (y_pred[i] == 0 or i == 0) and i < signal_end_point-1 and y_pred[i+1] == 1 :
                       start_point = int(((i+1)/Ty)*frame_length*fs)
@@ -212,18 +190,16 @@ if __name__ == '__main__':
         
     frame_length = 60
     Tx = 12000
-    Ty = 747
+    Ty = 372
     n_channels = 2
     bio_signals = ['signal1', 'signal2']
     
     model = stateful_model(input_shape = (1, Tx, n_channels))    
-    model.load_weights('./model_v7.h5')
-    model_p = stateful_model(input_shape = (1, Tx, n_channels))    
-    model_p.load_weights('./model_v7_p.h5')
+    model.load_weights('./model_v6.h5')
     test_set = open(os.path.join(DATA_PATH, 'RECORDS'), 'r').read().splitlines()
     for i, sample in enumerate(test_set):
         print(sample)    
         sample_path = os.path.join(DATA_PATH, sample)
         export_data(sample_path, RESULT_PATH, frame_length, Tx)
-        run_data(model, model_p, sample_path, RESULT_PATH, bio_signals, Tx, Ty, n_channels)
+        run_data(model, sample_path, RESULT_PATH, bio_signals, Tx, Ty, n_channels)
 

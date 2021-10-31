@@ -2,7 +2,7 @@
 
 ## What's in this repository?
 
-We implemented a Convolutional recurrent neural network that uses the frequency representations of the ECG lead signals as features.
+We implemented a Convolutional recurrent neural network that uses the time representations of the ECG lead signals as features.
 
 The code uses two main scripts, as described below, to train and run the model for the 2021 Challenge.
 
@@ -14,11 +14,13 @@ run
 
 ## How do I train the model?
 
+model is trained on Training Set II
+
 run 
 
     python train_model.py <data_path> <run_path>
 	
-where <data_path> is the folder path of the training set, <run_path> is the folder of the generated training data and the generated model. Training mode needs a GPU to run faster. 	
+where <data_path> is the folder path of the training set II, <run_path> is the folder of the generated training data and the generated model. Training mode needs a GPU to run faster. 	
 
 ## How do I run the model?
 
